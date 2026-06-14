@@ -60,7 +60,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
     # Отвечаем клиенту: фото + текст + кнопка
-    keyboard = [[InlineKeyboardButton('✉️ Написать Евгению', url=REALTOR_LINK)]]
+    keyboard = [[InlineKeyboardButton('🏠✍️ Написать Евгению', url=REALTOR_LINK)]]
     await update.message.reply_photo(
         photo=PHOTO_URL,
         caption=CAPTION,
