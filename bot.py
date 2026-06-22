@@ -47,17 +47,19 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Уведомляем блогера только при первом обращении клиента
     if user.id not in notified:
         notified.add(user.id)
-        await context.bot.send_message(
-            chat_id=BLOGGER_CHAT_ID,
-            text=(
-                f'🔔 *Новый клиент!*\n\n'
-                f'👤 {name}\n'
-                f'🔗 {link}\n'
-                f'📅 {now}\n'
-                f'➡️ Перенаправлен к риэлтору'
-            ),
-            parse_mode='Markdown'
-        )
+        try:
+            await context.bot.send_message(
+                chat_id=BLOGGER_CHAT_ID,
+                text=(
+                    f'🔔 Новый клиент!\n\n'
+                    f'👤 {name}\n'
+                    f'🔗 {link}\n'
+                    f'📅 {now}\n'
+                    f'➡️ Перенаправлен к риэлтору'
+                )
+            )
+        except Exception as e:
+            print(f'Не удалось отправить уведомление блогеру: {e}')
 
     # Отвечаем клиенту: фото + текст + кнопка
     keyboard = [[InlineKeyboardButton('🏠✍️ Написать Евгению', url=REALTOR_LINK)]]
