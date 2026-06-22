@@ -1,13 +1,16 @@
 from datetime import datetime, timezone, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler,
+    CallbackQueryHandler, filters, ContextTypes
+)
+ 
 # ═══════════════════════════════════════════════════════
 #  НАСТРОЙКИ — заполни один раз
 # ═══════════════════════════════════════════════════════
 BOT_TOKEN       = '8886457520:AAGtOfaBMZAF_xmeI-teG0Y2y-0Sngn1wHE'
 BLOGGER_CHAT_ID = '241473802'
-
+ 
 # Ссылка на риэлтора с заготовленным сообщением
 REALTOR_LINK = (
     'https://t.me/John007001?text='
@@ -19,65 +22,89 @@ REALTOR_LINK = (
     '%80%D1%82%D0%B8%D1%80%D0%B0%20%D0%B2%20%D0%9F%D0%B0%D1%82%D1%82%D0%B0%D0'
     '%B9%D0%B5.'
 )
-
+ 
 # Фото и текст для клиента
 PHOTO_URL = 'https://raw.githubusercontent.com/Anuarich/real_evgen/main/evgen2.jpg'
-
+ 
 CAPTION = (
     '🏠 *Евгений* — 7 лет занимается арендой квартир в Паттайе, '
     'владелец собственного агентства недвижимости.\n\n'
     'Огромный выбор квартир во всех районах Паттайи!'
 )
-
+ 
 # Часовой пояс (UTC+7 — Паттайя/Бангкок)
 TZ = timezone(timedelta(hours=7))
-
+ 
 # ═══════════════════════════════════════════════════════
-
+ 
 # Запоминаем уже уведомлённых клиентов (сбрасывается при перезапуске)
 notified: set[int] = set()
-
-
-async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    now  = datetime.now(TZ).strftime('%d.%m.%Y в %H:%M')
+ 
+ 
+def notify_text(user, now: str) -> str:
     name = user.full_name or 'Без имени'
     link = f'@{user.username}' if user.username else f'tg://user?id={user.id}'
-
-    # Уведомляем блогера только при первом обращении клиента
-    if user.id not in notified:
-        notified.add(user.id)
-        try:
-            await context.bot.send_message(
-                chat_id=BLOGGER_CHAT_ID,
-                text=(
-                    f'🔔 Новый клиент!\n\n'
-                    f'👤 {name}\n'
-                    f'🔗 {link}\n'
-                    f'📅 {now}\n'
-                    f'➡️ Перенаправлен к риэлтору'
-                )
-            )
-        except Exception as e:
-            print(f'Не удалось отправить уведомление блогеру: {e}')
-
-    # Отвечаем клиенту: фото + текст + кнопка
-    keyboard = [[InlineKeyboardButton('🏠✍️ Написать Евгению', url=REALTOR_LINK)]]
+    return (
+        f'🔔 Клиент нажал «Написать Евгению»!\n\n'
+        f'👤 {name}\n'
+        f'🔗 {link}\n'
+        f'📅 {now}\n'
+        f'➡️ Переходит к риэлтору'
+    )
+ 
+ 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+ 
+    # Кнопка пока что НЕ ведёт по ссылке — сначала шлёт уведомление
+    keyboard = [[InlineKeyboardButton(
+        '🏠✍️ Написать Евгению', callback_data='go_to_realtor'
+    )]]
+ 
     await update.message.reply_photo(
         photo=PHOTO_URL,
         caption=CAPTION,
         parse_mode='Markdown',
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-
-
+ 
+ 
+async def on_button_click(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    user = query.from_user
+    now = datetime.now(TZ).strftime('%d.%m.%Y в %H:%M')
+ 
+    await query.answer()  # убираем "часики" на кнопке
+ 
+    # Уведомляем блогера именно в момент нажатия кнопки
+    if user.id not in notified:
+        notified.add(user.id)
+        try:
+            await context.bot.send_message(
+                chat_id=BLOGGER_CHAT_ID,
+                text=notify_text(user, now)
+            )
+        except Exception as e:
+            print(f'Не удалось отправить уведомление блогеру: {e}')
+ 
+    # Превращаем кнопку в настоящую ссылку — клиенту нужно тапнуть ещё раз
+    real_keyboard = [[InlineKeyboardButton(
+        '✅ Открыть чат с Евгением', url=REALTOR_LINK
+    )]]
+    await query.edit_message_reply_markup(
+        reply_markup=InlineKeyboardMarkup(real_keyboard)
+    )
+ 
+ 
 def main() -> None:
     app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler('start', handle))
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle))
+    app.add_handler(CommandHandler('start', start))
+    app.add_handler(CallbackQueryHandler(on_button_click, pattern='go_to_realtor'))
+    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, start))
     print('Бот запущен ✓')
     app.run_polling()
-
-
+ 
+ 
 if __name__ == '__main__':
     main()
+ 
