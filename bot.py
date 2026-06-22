@@ -21,7 +21,7 @@ REALTOR_LINK = (
 )
 
 # Фото и текст для клиента
-PHOTO_URL = 'https://raw.githubusercontent.com/Anuarich/real_evgen/main/evgen.jpg'
+PHOTO_URL = 'https://raw.githubusercontent.com/Anuarich/real_evgen/main/evgen2.jpg'
 
 CAPTION = (
     '🏠 *Евгений* — 7 лет занимается арендой квартир в Паттайе, '
