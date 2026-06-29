@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -37,9 +38,6 @@ TZ = timezone(timedelta(hours=7))
 
 # ═══════════════════════════════════════════════════════
 
-# Запоминаем уже уведомлённых клиентов (сбрасывается при перезапуске)
-notified: set[int] = set()
-
 
 def notify_text(user, now: str) -> str:
     name = user.full_name or 'Без имени'
@@ -76,16 +74,19 @@ async def on_button_click(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     await query.answer()  # убираем "часики" на кнопке
 
-    # Уведомляем блогера именно в момент нажатия кнопки
-    if user.id not in notified:
-        notified.add(user.id)
+    # Уведомляем блогера при каждом нажатии кнопки.
+    # Пробуем до 3 раз — на случай временного сетевого сбоя.
+    for attempt in range(3):
         try:
             await context.bot.send_message(
                 chat_id=BLOGGER_CHAT_ID,
                 text=notify_text(user, now)
             )
+            break
         except Exception as e:
-            print(f'Не удалось отправить уведомление блогеру: {e}')
+            print(f'Попытка {attempt + 1}: не удалось отправить уведомление блогеру: {e}')
+            if attempt < 2:
+                await asyncio.sleep(1)
 
     # Превращаем кнопку в настоящую ссылку — клиенту нужно тапнуть ещё раз
     real_keyboard = [[InlineKeyboardButton(
